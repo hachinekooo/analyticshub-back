@@ -1,0 +1,166 @@
+# ==========================================
+# Analytics Hub - .gitignore
+# ==========================================
+
+# ========== 环境变量和敏感信息 ==========
+.env
+.env.local
+.env.*.local
+.env.production
+*.pem
+*.key
+*.crt
+*.p12
+secrets/
+credentials/
+
+# ========== 依赖目录 ==========
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-store/
+
+# ========== 日志文件 ==========
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# ========== 数据库相关 ==========
+# 数据库备份
+*.sql.backup
+*.sql.bak
+backup/
+backups/
+*.dump
+*.pg_dump
+
+# 数据库数据文件
+*.db
+*.sqlite
+*.sqlite3
+
+# ========== 操作系统文件 ==========
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Linux
+*~
+.directory
+.Trash-*
+
+# ========== IDE和编辑器 ==========
+# VSCode
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.json.example
+*.code-workspace
+
+# JetBrains (WebStorm, IntelliJ等)
+.idea/
+*.iml
+*.ipr
+*.iws
+out/
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+[._]*.s[a-v][a-z]
+[._]*.sw[a-p]
+[._]s[a-rt-v][a-z]
+[._]ss[a-gi-z]
+[._]sw[a-p]
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+
+# ========== 构建和临时文件 ==========
+dist/
+build/
+*.tgz
+*.zip
+*.tar.gz
+.tmp/
+temp/
+tmp/
+coverage/
+.nyc_output/
+
+# ========== 测试相关 ==========
+test-results/
+playwright-report/
+.coverage
+htmlcov/
+
+# ========== PM2和进程管理 ==========
+.pm2/
+pids/
+*.pid
+*.seed
+
+# ========== 其他 ==========
+# 缓存
+.cache/
+.eslintcache
+.stylelintcache
+
+# 本地配置
+.local
+*.local
+
+# 调试文件
+*.cpuprofile
+*.heapsnapshot
+
+# 系统和包管理器
+.npmrc.local
+.yarnrc.local
+
+# 敏感文档和笔记
+TODO.private.md
+NOTES.private.md
+*.secret.*
+
+# 用户特定配置
+.user.ini
+config.local.*
