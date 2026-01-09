@@ -113,40 +113,52 @@ http://localhost:3001/admin.html?token=your-secure-random-token
 ### iOS 示例
 
 ```swift
-// 1. 配置请求头
+// 1. 配置基础请求头
 var request = URLRequest(url: url)
 request.setValue("memobox", forHTTPHeaderField: "X-Project-ID")
 request.setValue(apiKey, forHTTPHeaderField: "X-API-Key")
 
-// 2. 注册设备
+// 2. 添加签名头 (详情见 api.md)
+// X-Device-ID, X-Timestamp, X-Signature...
+
+// 3. 注册设备 (无需签名)
 POST /api/v1/auth/register
 {
-  "device_id": "xxx",
-  "device_model": "iPhone 14 Pro"
+  "device_id": "xxx", ...
 }
 
-// 3. 上报事件
+// 4. 上报事件 (需签名)
 POST /api/v1/events
 {
-  "event_type": "button_click",
-  "properties": {"button_id": "login"}
+  "event_type": "click", ...
 }
 ```
+
+> ⚠️ **注意**: 事件上报接口需要 **HMAC签名**。
+> 详细算法和代码示例请参考 [API文档](./api.md#客户端实现示例)。
 
 ### Android 示例
 
 ```kotlin
-// 添加请求头
+// 基础头
 headers["X-Project-ID"] = "memobox"
 headers["X-API-Key"] = apiKey
+
+// + 签名头 (参考 API 文档)
 ```
 
 ### Web 示例
 
 ```javascript
-// Axios
+// 基础配置
 axios.defaults.headers.common['X-Project-ID'] = 'memobox';
-axios.defaults.headers.common['X-API-Key'] = apiKey;
+
+// 动态请求拦截器中添加签名
+axios.interceptors.request.use(config => {
+  // 生成签名逻辑 (见 api.md)
+  // config.headers['X-Signature'] = ...
+  return config;
+});
 ```
 
 ## 常见问题

@@ -1,4 +1,4 @@
-# Analytics API Service
+# Analytics Hub
 
 > 通用数据埋点与分析后端服务 - 支持多项目、自动初始化、可视化管理
 
