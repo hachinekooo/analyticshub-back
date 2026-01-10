@@ -1,193 +1,142 @@
 # API 接口文档
 
-## 认证机制
-
-Analytics Hub 使用 **API Key + HMAC签名** 的双重认证机制来确保数据安全。
-
-### 核心概念
-
-1. **X-Project-ID**: 项目标识符（如 `memobox`），在管理后台创建。
-2. **API Key**: 设备的公开标识，注册时返回。
-3. **Secret Key**: 设备的私有密钥，注册时返回，**严禁传输**，仅用于本地生成签名。
-4. **Device ID**: 设备的唯一硬件标识（UUID）。
-
-### 认证流程
-
-1. **设备注册** (首次启动)
-   - 客户端生成 `device_id`
-   - 调用 `/api/v1/auth/register`
-   - 服务器返回 `api_key` 和 `secret_key`
-   - 客户端本地安全存储这两个 Key
-
-2. **后续请求** (事件上报等)
-   - 客户端使用 `secret_key` 对请求进行签名
-   - 请求头携带签名和API Key
-   - 服务器验证签名
-
-### 签名算法
-
-签名生成步骤如下：
-
-1. **准备参数**:
-   - `method`: HTTP方法 (如 "POST")
-   - `path`: 请求路径 (如 "/api/v1/events")
-   - `timestamp`: 当前时间戳 (毫秒)
-   - `deviceId`: 设备ID
-   - `userId`: 用户ID (可选，无则留空字符串)
-   - `body`: 请求体 JSON 字符串 (无则为空字符串)
-   - `secretKey`: 注册时获得的密钥
-
-2. **拼接字符串**:
-   使用换行符 `\n` 连接各字段：
-   ```
-   data = method + "\n" + path + "\n" + timestamp + "\n" + deviceId + "\n" + userId + "\n" + body
-   ```
-
-3. **HMAC计算**:
-   使用 `HmacSHA256` 算法，用 `secretKey` 对 `data` 进行加密，输出 **Base64** 字符串。
-
-4. **请求头设置**:
-   ```http
-   X-Project-ID: <project_id>
-   X-API-Key: <api_key>
-   X-Device-ID: <device_id>
-   X-User-ID: <user_id>
-   X-Timestamp: <timestamp>
-   X-Signature: <signature>
-   ```
+本文档包含了 Analytics Hub backend 所有可用的 API 接口信息，分为 **客户端采集 API**、**系统管理 API** 和 **健康检查** 三大类。
 
 ---
 
-## 接口详情
+## 🔐 认证机制
+
+### 1. 客户端采集认证 (HMAC 签名)
+适用于移动端、Web端、IoT设备。为了防止数据伪造，除注册接口外，所有采集接口必须进行 HMAC 签名。
+
+**必需 Header**:
+| Header | 说明 | 示例 |
+|--------|------|------|
+| `X-Project-ID` | 项目标识符 | `memobox` |
+| `X-API-Key` | 注册时获得的公开 Key | `api_live_xxxx` |
+| `X-Device-ID` | 设备唯一硬件 ID (UUID) | `550e8400-e29b...` |
+| `X-Timestamp` | 当前毫秒时间戳 | `1704856000000` |
+| `X-Signature` | HMAC-SHA256 签名结果 | `Base64(...)` |
+
+**签名算法**:
+1. 拼接字符串: `method + "\n" + path + "\n" + timestamp + "\n" + deviceId + "\n" + userId + "\n" + body`
+2. 使用 `secretKey` (注册获得) 对上述字符串进行 HMAC-SHA256 加密。
+3. 对加密结果进行 **Base64** 编码。
+
+### 2. 系统管理认证 (Bearer Token)
+适用于 CMS 管理后台或内部脚本。
+
+**必需 Header**:
+```http
+Authorization: Bearer <ADMIN_TOKEN>
+```
+*注：ADMIN_TOKEN 在后端 `.env` 文件中配置。*
+
+---
+
+## 📱 客户端采集 API (v1)
 
 ### 1. 设备注册
+**首次启动时调用**，获取通信所需的 API Key 和 Secret Key。
 
-用于新设备接入，获取通信凭证。不需要签名认证，但需要 `X-Project-ID`。
-
-- **URL**: `/api/v1/auth/register`
-- **Method**: `POST`
-- **Headers**:
-  - `X-Project-ID`: (必填) 项目ID
-
-**请求体**:
+- **URL**: `POST /api/v1/auth/register`
+- **认证**: 无需签名，但需携带 `X-Project-ID` Header。
+- **请求体**:
 ```json
 {
-  "device_id": "550e8400-e29b-41d4-a716-446655440000",
-  "device_model": "iPhone 14 Pro",
-  "os_version": "iOS 16.5",
+  "device_id": "UUID",
+  "device_model": "iPhone 15 Pro",
+  "os_version": "iOS 17.0",
+  "app_version": "1.0.0"
+}
+```
+- **响应**: `api_key` 和 `secret_key`。
+
+### 2. 单事件上报
+上报具体的行为（如按钮点击、页面访问）。
+
+- **URL**: `POST /api/v1/events/track`
+- **认证**: HMAC 签名
+- **请求体**:
+```json
+{
+  "event_type": "button_click",
+  "timestamp": 1704856000000, 
+  "session_id": "可选 UUID",
+  "properties": { "button_name": "login", "color": "blue" }
+}
+```
+
+### 3. 批量事件上报
+用于网络波动重发暂存事件，或降低请求频率。
+
+- **URL**: `POST /api/v1/events/batch`
+- **认证**: HMAC 签名
+- **参数**: `{"events": [...]}` (最多 100 条)
+
+### 4. 会话 (Session) 上传
+记录用户的一次启动到退出的完整会话。支持 **Upsert** (如果 session_id 已存在则更新时长和事件数)。
+
+- **URL**: `POST /api/v1/sessions`
+- **认证**: HMAC 签名
+- **请求体**:
+```json
+{
+  "session_id": "UUID",
+  "session_start_time": "2024-01-10T10:00:00Z",
+  "session_duration_ms": 120000,
+  "event_count": 15,
+  "screen_count": 5,
   "app_version": "1.0.0"
 }
 ```
 
-**响应**:
+### 5. 认证测试 (Debug)
+用于验证你的 HMAC 签名逻辑是否正确。
+
+- **URL**: `GET /api/v1/protected/test`
+- **认证**: HMAC 签名
+
+---
+
+## ⚙️ 系统管理 API (Admin)
+
+所有接口前缀: `/api/admin`
+认证方式: `Authorization: Bearer <token>`
+
+| 路径 | 方法 | 说明 |
+|------|------|------|
+| `/projects` | GET | 获取所有项目配置列表 |
+| `/projects` | POST | 创建新项目配置 |
+| `/projects/:id` | PUT | 更新项目信息 (包含激活状态) |
+| `/projects/:id` | DELETE | 删除项目配置 |
+| `/projects/:id/test` | POST | 测试项目绑定的数据库连接 |
+| `/projects/:id/init` | POST | 执行 SQL 初始化该项目的数据库表 |
+| `/projects/:id/health` | GET | 检查项目的数据库连通性及表完整性 |
+
+---
+
+## 🏥 健康检查 (Health)
+
+- **URL**: `GET /health`
+- **认证**: 无
+- **响应示例**:
 ```json
 {
   "success": true,
   "data": {
-    "api_key": "api_live_xxxxxxxx",
-    "secret_key": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-    "is_new": true
+    "status": "healthy",
+    "database": "connected",
+    "uptime": 3600
   }
-}
-```
-> ⚠️ **注意**: 请务必安全保存 `secret_key`，丢失无法找回！
-
-### 2. 事件上报
-
-上报用户行为事件。需要完整签名认证。
-
-- **URL**: `/api/v1/events`
-- **Method**: `POST`
-- **Headers**: 需包含所有认证头
-
-**请求体**:
-```json
-{
-  "event_type": "button_click",
-  "properties": {
-    "page": "home",
-    "button": "signup"
-  }
-}
-```
-
-### 3. 会话上报
-
-上报用户会话信息（时长、PV等）。
-
-- **URL**: `/api/v1/sessions`
-- **Method**: `POST`
-
-**请求体**:
-```json
-{
-  "session_id": "uuid-xxx",
-  "start_time": "2024-01-01T10:00:00Z",
-  "duration_ms": 120000,
-  "event_count": 5
 }
 ```
 
 ---
 
-## 客户端实现示例
+## 💡 注意事项
 
-### Node.js 示例
-
-```javascript
-const crypto = require('crypto');
-
-function generateSignature(method, path, timestamp, deviceId, userId, body, secretKey) {
-    // 注意：使用 \n 分隔各个字段
-    const data = `${method}\n${path}\n${timestamp}\n${deviceId}\n${userId}\n${body}`;
-    return crypto.createHmac('sha256', secretKey)
-        .update(data)
-        .digest('base64');
-}
-
-// 使用示例
-const timestamp = Date.now().toString();
-const body = JSON.stringify({ event_type: 'test' });
-const signature = generateSignature(
-    'POST', 
-    '/api/v1/events', 
-    timestamp, 
-    'device-123', 
-    'user-456', 
-    body, 
-    'my-secret-key'
-);
-```
-
-### Swift 示例
-
-```swift
-import CryptoKit
-
-func generateSignature(method: String, path: String, timestamp: String, deviceId: String, userId: String, body: String, secretKey: String) -> String {
-    // 注意：使用 \n 分隔各个字段
-    let data = "\(method)\n\(path)\n\(timestamp)\n\(deviceId)\n\(userId)\n\(body)"
-    let key = SymmetricKey(data: secretKey.data(using: .utf8)!)
-    let signature = HMAC<SHA256>.authenticationCode(for: data.data(using: .utf8)!, using: key)
-    return Data(signature).base64EncodedString()
-}
-```
-
-### Kotlin (Android) 示例
-
-```kotlin
-import javax.crypto.Mac
-import javax.crypto.spec.SecretKeySpec
-import java.util.Base64
-
-fun generateSignature(method: String, path: String, timestamp: String, deviceId: String, userId: String, body: String, secretKey: String): String {
-    // 注意：使用 \n 分隔各个字段
-    val data = "$method\n$path\n$timestamp\n$deviceId\n$userId\n$body"
-    val hmacSha256 = "HmacSHA256"
-    val secretKeySpec = SecretKeySpec(secretKey.toByteArray(), hmacSha256)
-    val mac = Mac.getInstance(hmacSha256)
-    mac.init(secretKeySpec)
-    val bytes = mac.doFinal(data.toByteArray())
-    return Base64.getEncoder().encodeToString(bytes)
-}
-```
+1. **URL 完整性**: 所有的采集 API 必须包含 `/api/v1` 前缀，管理 API 必须包含 `/api/admin` 前缀。
+2. **404 错误**: 如果返回 404，请首先检查请求路径是否漏写了子路径（如 `/events` 漏写了 `/track`）。
+3. **304 响应**: 是浏览器/后端缓存机制产生的正常现象，不影响业务。
+4. **数据库清理**: `traffic_metrics` 表目前由系统自动维护，无公开写入 API。

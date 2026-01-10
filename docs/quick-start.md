@@ -136,9 +136,15 @@ POST /api/v1/auth/register
 }
 
 // 4. 上报事件 (需签名)
-POST /api/v1/events
+POST /api/v1/events/track
 {
   "event_type": "click", ...
+}
+
+// 5. 上报会话 (需签名)
+POST /api/v1/sessions
+{
+  "session_id": "xxx", ...
 }
 ```
 

@@ -155,7 +155,7 @@ req.deviceInfo = <设备信息>
 ```
 iOS App (MemoBox)
   │
-  ├─ POST /api/v1/events
+  ├─ POST /api/v1/events/track
   │  └─ Header: X-Project-ID: memobox
   │     Header: X-API-Key: xxx
   │

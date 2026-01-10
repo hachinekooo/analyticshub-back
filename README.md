@@ -114,7 +114,7 @@ backend/
 | 路径 | 方法 | 说明 |
 |------|------|------|
 | `/api/v1/auth/register` | POST | 设备注册 |
-| `/api/v1/events` | POST | 事件上报 |
+| `/api/v1/events/track` | POST | 单事件上报 |
 | `/api/v1/sessions` | POST | 会话上报 |
 | `/api/admin/projects` | GET/POST | 项目管理 |
 
